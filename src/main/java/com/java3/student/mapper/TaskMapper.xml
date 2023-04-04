@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.java3.student.mapper.TaskMapper">
+    <resultMap id="BaseResultMap" type="com.java3.student.domain.Task">
+        <!--column 属性：用于指定数据库列名-->
+        <!--property 属性：用于指定实体类属性名称-->
+        <!--id 标签：用于指定主键字段-->
+        <id column="id" property="id" jdbcType="INTEGER"/>
+        <!--result 标签：用于指定非主键字段-->
+        <result column="brief" property="brief" jdbcType="VARCHAR"/>
+        <result column="state" property="state" jdbcType="INTEGER"/>
+        <result column="create_by" property="createBy" jdbcType="INTEGER"/>
+        <result column="receive_by" property="receiveBy" jdbcType="INTEGER"/>
+        <result column="start_date" property="startDate" jdbcType="VARCHAR"/>
+        <result column="end_date" property="endDate" jdbcType="VARCHAR"/>
+        <result column="create_time" property="createTime" jdbcType="VARCHAR"/>
+        <result column="cost" property="cost" jdbcType="INTEGER"/>
+        <!--   一对一 / 多对一   -->
+        <association property="user" javaType="com.java3.settings.domain.User">
+            <id column="id" property="id" jdbcType="INTEGER"/>
+            <result column="login_act" property="logAct" jdbcType="VARCHAR"/>
+            <result column="name" property="name" jdbcType="VARCHAR"/>
+            <result column="login_pwd" property="logPwd" jdbcType="VARCHAR"/>
+            <result column="tel" property="tel" jdbcType="VARCHAR"/>
+            <result column="fans" property="fans" jdbcType="INTEGER"/>
+            <result column="follow" property="follow" jdbcType="INTEGER"/>
+            <result column="accept_order" property="acceptOrder" jdbcType="INTEGER"/>
+            <result column="balance" property="balance" jdbcType="INTEGER"/>
+        </association>
+    </resultMap>
+    <!--<resultMap id="BaseTaskUser" type="com.java3.student.domain.TaskUser" >-->
+    <!--&lt;!&ndash;column 属性：用于指定数据库列名&ndash;&gt;-->
+    <!--&lt;!&ndash;property 属性：用于指定实体类属性名称&ndash;&gt;-->
+    <!--&lt;!&ndash;id 标签：用于指定主键字段&ndash;&gt;-->
+    <!--<id column="id" property="id" jdbcType="INTEGER" />-->
+    <!--&lt;!&ndash;result 标签：用于指定非主键字段&ndash;&gt;-->
+    <!--<result column="brief" property="brief" jdbcType="VARCHAR" />-->
+    <!--<result column="state" property="state" jdbcType="INTEGER" />-->
+    <!--<result column="create_by" property="createBy" jdbcType="INTEGER" />-->
+    <!--<result column="receive_by" property="receiveBy" jdbcType="INTEGER" />-->
+    <!--<result column="start_date" property="startDate" jdbcType="VARCHAR" />-->
+    <!--<result column="end_date" property="endDate" jdbcType="VARCHAR" />-->
+    <!--<result column="create_time" property="createTime" jdbcType="VARCHAR" />-->
+    <!--<result column="cost" property="cost" jdbcType="INTEGER" />-->
+    <!--</resultMap>-->
+    <sql id="Base_Column_List">
+    id, brief, state, create_by, receive_by, start_date, end_date, create_time, cost
+  </sql>
+
+    <select id="selectAllTaskByConditionForPage" parameterType="map" resultMap="BaseResultMap">
+        SELECT t.id,t.brief,t.state,u.name as name,t.start_date,t.end_date,t.cost
+        FROM tb_task t,tb_user u
+        where t.create_by=u.id
+        <if test="brief!=null and brief!=''">
+            and t.brief like '%' #{brief} '%'
+        </if>
+        order by t.id desc
+        limit #{pageNo},#{pageSize}
+    </select>
+
+    <select id="selectCountOfTaskByCondition" parameterType="map" resultType="int">
+        select count(*)
+        FROM tb_task t,tb_user u
+        where t.create_by=u.id
+        <if test="brief!=null and brief!=''">
+            and t.brief like '%' #{brief} '%'
+        </if>
+    </select>
+
+    <select id="selectAllDealTask" parameterType="map" resultMap="BaseResultMap">
+        SELECT t.id,t.brief,t.state,u.name as name,t.start_date,t.end_date,t.cost
+        FROM tb_task t , tb_user u
+        where create_by
+        in(SELECT t1.create_by FROM tb_task t1,tb_user u1 WHERE t1.receive_by=u1.id)
+        and receive_by=#{sessionUser.id}
+        and create_by=u.id
+        order by t.id desc
+  </select>
+
+    <update id="updateDealTaskByIds" parameterType="map">
+        UPDATE tb_task
+        set receive_by=#{sessionUser.id},state=2
+        WHERE id in
+        <foreach collection="ids" item="id" separator="," open="(" close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <select id="selectAllSaveTask" parameterType="map" resultMap="BaseResultMap">
+        SELECT t.id,t.brief,t.state,t.start_date,t.end_date,t.cost
+        FROM tb_task t,tb_user u
+        WHERE t.create_by=u.id
+        and create_by=#{sessionUser.id}
+    </select>
+    
+    <insert id="insertTask" parameterType="com.java3.student.domain.Task">
+        insert into tb_task values(null,#{brief},#{state},#{createBy},null,#{startDate},#{endDate},#{createTime},#{cost})
+    </insert>
+
+    <delete id="deleteTaskByIds" parameterType="string">
+        DELETE FROM tb_task WHERE id IN
+        <foreach collection="array" item="id" separator="," open="(" close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <select id="selectTaskById" parameterType="String" resultMap="BaseResultMap">
+        SELECT
+        <include refid="Base_Column_List"></include>
+        FROM  tb_task
+        WHERE  id=#{id}
+    </select>
+
+    <update id="updateTask" parameterType="com.java3.student.domain.Task">
+        UPDATE tb_task
+        set brief=#{brief},start_date=#{startDate},end_date=#{endDate},cost=#{cost}
+        WHERE id=#{id}
+    </update>
+
+    <update id="finshTaskByIds" parameterType="String">
+        UPDATE tb_task
+        set state=3
+        WHERE id in
+        <foreach collection="array" item="id" separator="," open="(" close=")">
+            #{id}
+        </foreach>
+    </update>
+</mapper>
